@@ -143,7 +143,7 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # ==============================
-# STEP 2: LOAD & CLEAN DATA (WITH DYNAMIC ONHAND OVERRIDE)
+# STEP 2: LOAD & CLEAN DATA
 # ==============================
 master_file = "Consum control.xlsx"
 if os.path.exists(master_file):
@@ -152,22 +152,11 @@ else:
     st.error("❌ ไม่พบไฟล์ Consum control.xlsx ในโฟลเดอร์ระบบ")
     st.stop()
 
-# 1. ตรวจสอบและโหลดไฟล์ Onhand แยก (รองรับทั้ง .xlsx และ .csv)
-onhand_file_xlsx = "Onhand.xlsx"
-onhand_file_csv = "Onhand.csv"
-df_onhand = None
-
-if os.path.exists(onhand_file_xlsx):
-    df_onhand = pd.read_excel(onhand_file_xlsx)
-elif os.path.exists(onhand_file_csv):
-    df_onhand = pd.read_csv(onhand_file_csv)
-
-# 2. โหลดไฟล์ Location
 location_file_xlsx = "Location.xlsx"
 location_file_csv = "Location.csv"
 df_location = pd.read_excel(location_file_xlsx) if os.path.exists(location_file_xlsx) else (pd.read_csv(location_file_csv) if os.path.exists(location_file_csv) else None)
 
-# Clean Master Columns
+# Clean Columns
 df_master.columns = df_master.columns.astype(str).str.replace('\n', ' ').str.strip()
 
 moq_col = next((c for c in df_master.columns if "2569" in c), None) or "MOQ_Temp"
@@ -188,27 +177,11 @@ master.rename(columns={
 
 master["Part Number"] = master["Part Number"].astype(str).str.strip()
 
-# ⚡⚡⚡ ดึงยอด On Hand จากไฟล์ Onhand แยกมาทับ (ถ้ามีไฟล์ Onhand) ⚡⚡⚡
-if df_onhand is not None:
-    df_onhand.columns = df_onhand.columns.astype(str).str.replace('\n', ' ').str.strip()
-    item_oh_col = df_onhand.columns[0]  # คอลัมน์ที่ 1 คือ Part Number
-    val_oh_col = df_onhand.columns[1]   # คอลัมน์ที่ 2 คือ ยอด On Hand
-    
-    df_onhand[item_oh_col] = df_onhand[item_oh_col].astype(str).str.strip()
-    df_onhand[val_oh_col] = pd.to_numeric(df_onhand[val_oh_col], errors='coerce').fillna(0)
-    
-    oh_summary = df_onhand[[item_oh_col, val_oh_col]].rename(columns={item_oh_col: "Part Number", val_oh_col: "On Hand Realtime"})
-    
-    # Merge ยอด On Hand ใหม่เข้าไปแทนค่าเดิม
-    master = master.merge(oh_summary, on="Part Number", how="left")
-    master["On Hand"] = master["On Hand Realtime"].combine_first(master["On Hand"]).fillna(0)
-    master.drop(columns=["On Hand Realtime"], inplace=True)
-
 for col in ["On Hand", "SS", "Ordered", "Min", "Max", "MOQ (ปี 2569)", "Unit Cost (บาท)", "Lead Time"]:
     if col in master.columns:
         master[col] = pd.to_numeric(master[col], errors='coerce').fillna(0)
 
-# Merge Location Data
+# Merge Location
 if df_location is not None:
     df_location.columns = df_location.columns.astype(str).str.replace('\n', ' ').str.strip()
     loc_item_col = df_location.columns[0]
@@ -279,10 +252,6 @@ st.markdown("<br>", unsafe_allow_html=True)
 # แจ้งเตือนสถานะการโหลดรูป TANK
 if not bg_tank_url:
     st.warning("⚠️ ไม่พบไฟล์ภาพ TANK.JPG ในโฟลเดอร์ กรุณาตรวจสอบชื่อไฟล์ภาพในโฟลเดอร์ระบบ")
-
-# แจ้งเตือนหากดึงยอด On Hand จากไฟล์แยกสำเร็จ
-if df_onhand is not None:
-    st.info("ℹ️ ระบบกำลังใช้อย่างถูกต้อง: ยอด On Hand ล่าสุดถูกอัปเดตจากไฟล์ Onhand เรียบร้อยแล้ว")
 
 # ==============================
 # STEP 4: PAGES & ROUTING
