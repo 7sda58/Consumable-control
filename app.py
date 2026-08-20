@@ -143,8 +143,10 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # ==============================
-# STEP 2: LOAD & CLEAN DATA
+# STEP 2: LOAD & CLEAN DATA (MASTER ONLY)
 # ==============================
+st.cache_data.clear()
+
 master_file = "Consum control.xlsx"
 if os.path.exists(master_file):
     df_master = pd.read_excel(master_file)
@@ -152,11 +154,12 @@ else:
     st.error("❌ ไม่พบไฟล์ Consum control.xlsx ในโฟลเดอร์ระบบ")
     st.stop()
 
+# โหลดไฟล์ Location
 location_file_xlsx = "Location.xlsx"
 location_file_csv = "Location.csv"
 df_location = pd.read_excel(location_file_xlsx) if os.path.exists(location_file_xlsx) else (pd.read_csv(location_file_csv) if os.path.exists(location_file_csv) else None)
 
-# Clean Columns
+# Clean Master Columns
 df_master.columns = df_master.columns.astype(str).str.replace('\n', ' ').str.strip()
 
 moq_col = next((c for c in df_master.columns if "2569" in c), None) or "MOQ_Temp"
@@ -177,11 +180,12 @@ master.rename(columns={
 
 master["Part Number"] = master["Part Number"].astype(str).str.strip()
 
+# แปลงตัวเลขโดยใช้อยอด On Hand จากไฟล์ Master
 for col in ["On Hand", "SS", "Ordered", "Min", "Max", "MOQ (ปี 2569)", "Unit Cost (บาท)", "Lead Time"]:
     if col in master.columns:
         master[col] = pd.to_numeric(master[col], errors='coerce').fillna(0)
 
-# Merge Location
+# Merge Location Data
 if df_location is not None:
     df_location.columns = df_location.columns.astype(str).str.replace('\n', ' ').str.strip()
     loc_item_col = df_location.columns[0]
